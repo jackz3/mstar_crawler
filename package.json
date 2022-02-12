@@ -1,0 +1,29 @@
+{
+  "name": "mstar_crawler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./dist/crawler.js",
+    "login": "node ./dist/login.js",
+    "dev": "tsc -W"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jackz3/mstar_crawler.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jackz3/mstar_crawler/issues"
+  },
+  "homepage": "https://github.com/jackz3/mstar_crawler#readme",
+  "devDependencies": {
+    "playwright": "^1.19.0",
+    "typescript": "^4.5.5"
+  },
+  "dependencies": {
+    "csv-parse": "^5.0.4",
+    "csv-stringify": "^6.0.5"
+  }
+}

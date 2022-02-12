@@ -1,1 +1,1 @@
-# mstar_crawler
+# Morning Star China crawler

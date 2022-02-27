@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node ./dist/crawler.js",
+    "start": "node --max-old-space-size=8192 ./dist/crawler.js",
     "login": "node ./dist/login.js",
     "dev": "tsc -W"
   },

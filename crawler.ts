@@ -4,9 +4,11 @@ import { writeFile, readFile, appendFile, unlink } from 'fs/promises'
 import { stringify } from 'csv-stringify/sync'
 import { parse } from 'csv-parse/sync'
 
-const [a, b, crawlType, fromPage] = process.argv
-const fromPageNum = parseInt(fromPage) || 1
-console.log(crawlType , fromPageNum)
+const [a, b, pageType, fromPage = ''] = process.argv
+console.log(pageType , fromPage)
+const fromTypes= pageType.split(',')
+const fromPages = fromPage.split(',')
+const froms = fromTypes.map((x, i) => fromPages[i] ?? '1')
 const Headless = true
 const Devtools = true
 const SkipUrls: {[url: string]: [string, string]} = {
@@ -17,9 +19,16 @@ const SkipUrls: {[url: string]: [string, string]} = {
 type FundData = string[]
 
 ;(async () => {
-  const browser = await chromium.launch({ headless: true, devtools: Devtools})
+  const browser = await chromium.launch({ headless: Headless, devtools: Devtools})
   const context = await browser.newContext({ storageState: 'state.json' })
-  const page = await context.newPage()
+  await Promise.all(fromTypes.map(async (x, i) => {
+    const page = await context.newPage()
+    return pageCrawl(page, x, froms[i])
+  })) 
+  await browser.close();
+})()
+
+async function pageCrawl (page: Page, crawlType: string, from: string) {
   await page.route('**/*', (route) => {
     const req = route.request()
     const resType = route.request().resourceType()
@@ -40,19 +49,27 @@ type FundData = string[]
     }
     return route.continue()
   })
+  page.setDefaultNavigationTimeout(60 * 1000)
   await page.goto('https://www.morningstar.cn/quickrank/default.aspx')
-  const rankCols = ['code', 'name', 'fundType', 'rank3y', 'rand5y', 'nvDate', 'net', 'diff', 'retYear']
+  const rankCols = ['code', 'name', 'fundType', 'rank3y', 'rank5y', 'nvDate', 'net', 'diff', 'retYear']
   const rankPage1 = await extractPage(page, rankCols, 2)
   const nvDate = rankPage1[0][5]
   console.log({nvDate})
   const funds : FundData[] = []
   const fileName = `./output/${crawlType}_${nvDate}.csv`
-  if (fromPageNum > 1) {
+  let fromPageNum: number = 1
+  if (from !== '1') {
     try {
       const jsonTxt = await readFile(`./output/${crawlType}_${nvDate}.csv`)
       if (jsonTxt) {
         const records = parse(jsonTxt, { columns: false })
-        console.log('records count:', records.length)
+        const rows = records.length - 1
+        console.log('records count:', rows)
+        if (from === '?') {
+          fromPageNum = rows / 25 + 1    
+        } else {
+          fromPageNum = parseInt(from)
+        }
         // for(let i = 1; i < records.length; i++) {
         //   funds.push(records[i])
         // }
@@ -67,17 +84,11 @@ type FundData = string[]
     }
   }
   if (crawlType === 'snapshot') {
-    // let pageNum = fromPageNum
-    // if (fromPageNum === 1) {
-    //   await savePage(funds, page, rankCols)
-    //   pageNum = 2
-    // }
     await crawlAllPages(funds, page, rankCols, fromPageNum, nvDate, crawlType);
   } else {
     await Crawl(funds, page, nvDate, crawlType, fromPageNum)
   }
-  await browser.close();
-})()
+}
 
 async function Crawl(funds: FundData[], page: Page, nvDate: string, crawlType: string, pageNum: number) {
   let cols: string[]
@@ -116,11 +127,24 @@ async function crawlAllPages(funds: FundData[], page: Page, cols: string[], page
     const maxPage = +match[1]
     console.log('max', maxPage)
     for (let curPage = pageNum; curPage <= maxPage; curPage++) {
-      await Promise.all([
-        page.evaluate(([curPage]) => (<any>window)['__doPostBack']('ctl00$cphMain$AspNetPager1', curPage), [curPage.toString()]),
-        page.waitForNavigation()
-      ])
-      process.stdout.write(`page ${curPage},`)
+      let errCount = 0
+      while (errCount < 3) {
+        try {
+          await Promise.all([
+            page.evaluate(([curPage]) => (<any>window)['__doPostBack']('ctl00$cphMain$AspNetPager1', curPage), [curPage.toString()]),
+            page.waitForNavigation()
+          ])
+        } catch (err) {
+          errCount++
+          console.error(err)
+          continue
+        }
+          break
+      }
+      if (errCount >= 3) {
+        throw Error(`error when crawling page ${curPage}`)
+      }
+      process.stdout.write(`${crawlType} page ${curPage},`)
       await savePage(funds, page, cols)
       if (curPage % 10 === 0) {
         if (curPage === 10) {
@@ -144,7 +168,7 @@ async function saveCsv(funds: FundData[], cols: string[], nvDate: string, crawlT
     bom: true, header, columns: cols
   })
   appendFile(fileName, output)
-  console.log('save csv', funds.length);
+  console.log(`${crawlType} save csv file ${funds.length}`);
   funds.splice(0, funds.length)
 }
 
@@ -168,7 +192,7 @@ async function extractPage (page: Page, cols: string[], offset: number) {
         const maxColId = cols.length + offset
         for (let idx = offset; idx < maxColId; idx++) {
           let item = await tds.nth(idx).textContent() ?? ''
-          if (item !== '-' && ['rank3y', 'rand5y', 'style'].includes(cols[idx - offset])) {
+          if (item !== '-' && ['rank3y', 'rank5y', 'style'].includes(cols[idx - offset])) {
             item = await tds.nth(idx).locator('img').getAttribute('src') ?? ''
           }
           pd.push(item)

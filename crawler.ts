@@ -144,8 +144,9 @@ async function crawlAllPages(funds: FundData[], page: Page, cols: string[], page
       if (errCount >= 3) {
         throw Error(`error when crawling page ${curPage}`)
       }
-      process.stdout.write(`${crawlType} page ${curPage},`)
-      await savePage(funds, page, cols)
+      // process.stdout.write(`${crawlType} page ${curPage},`)
+      console.log(`${crawlType} fetched page ${curPage}`)
+      await savePage(funds, page, cols, curPage === maxPage)
       if (curPage % 10 === 0) {
         if (curPage === 10) {
           
@@ -168,13 +169,15 @@ async function saveCsv(funds: FundData[], cols: string[], nvDate: string, crawlT
     bom: true, header, columns: cols
   })
   appendFile(fileName, output)
-  console.log(`${crawlType} save csv file ${funds.length}`);
+  console.log(`${crawlType} saved csv file +${funds.length}`);
   funds.splice(0, funds.length)
 }
 
-async function savePage (funds: FundData[], page: Page, cols: string[]) {
+async function savePage (funds: FundData[], page: Page, cols: string[], isLastPage: boolean = false) {
   const pageFunds = await extractPage(page, cols, 2)
-  console.log('save page', pageFunds.length);
+  if (pageFunds.length !== 25 && !isLastPage) {
+    throw new Error('page error')
+  }
   pageFunds.forEach(data => {
     funds.push(data)
   })

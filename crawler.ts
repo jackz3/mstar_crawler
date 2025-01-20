@@ -51,6 +51,8 @@ async function pageCrawl (page: Page, crawlType: string, from: string) {
   })
   page.setDefaultNavigationTimeout(60 * 1000)
   await page.goto('https://www.morningstar.cn/quickrank/default.aspx')
+  await page.click('input#ctl00_cphMain_btnGo')
+  await page.waitForTimeout(5000)
   const rankCols = ['code', 'name', 'fundType', 'rank3y', 'rank5y', 'nvDate', 'net', 'diff', 'retYear']
   const rankPage1 = await extractPage(page, rankCols, 2)
   const nvDate = rankPage1[0][5]

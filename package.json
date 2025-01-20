@@ -8,7 +8,10 @@
     "login": "node ./dist/login.js",
     "dev": "tsc -W",
     "a9": "node ./dist/a9.js",
-    "gs": "node ./dist/gamersky.js"
+    "gs": "node ./dist/gamersky.js",
+    "huatai": "node ./dist/huatai.js",
+    "cmb": "node ./dist/cmb.js",
+    "nyyh": "node ./dist/nyyh.js"
   },
   "repository": {
     "type": "git",
